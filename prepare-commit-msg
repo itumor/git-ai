@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Skip merges and amendments
+if [[ "$COMMIT_SOURCE" == "merge" || "$COMMIT_SOURCE" == "commit" ]]; then
+  exit 0
+fi
+
+# Get staged diff (cap size)
+DIFF=$(git diff --cached | head -n 400)
+
+if [[ -z "$DIFF" ]]; then
+  exit 0
+fi
+
+PROMPT=$(cat <<'EOF'
+Output ONLY a Git commit message.
+
+Rules:
+- No explanations
+- No quotes
+- No markdown
+- Conventional Commits format
+- Max 72 chars title
+- Optional body separated by a blank line
+
+Diff:
+EOF
+)
+
+PROMPT="$PROMPT
+$DIFF"
+
+RESPONSE=$(curl -s --max-time 10 http://localhost:11434/api/generate \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"model\": \"llama3\",
+    \"prompt\": $(jq -Rs . <<< \"$PROMPT\"),
+    \"stream\": false
+  }" | jq -r '.response')
+
+# Final safety check
+if [[ -n "$RESPONSE" ]]; then
+  echo "$RESPONSE" > "$COMMIT_MSG_FILE"
+fi
+
