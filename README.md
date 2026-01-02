@@ -81,31 +81,29 @@ fi
 
 ## Diagrams
 Hook lifecycle (high level):
-```
-git commit
-   |
-   v
-prepare-commit-msg hook
-   |
-   |-- if merge/amend or no staged diff -> exit (no change)
-   |
-   |-- build prompt with capped staged diff
-   |
-   |-- POST to http://localhost:11434/api/generate (Ollama)
-           |
-           |-- failure -> exit (Git continues)
-           |-- success -> write message to commit file
+```mermaid
+flowchart TD
+  A[git commit] --> B{prepare-commit-msg hook}
+  B -->|merge/amend| C[exit, no change]
+  B -->|no staged diff| C
+  B -->|normal commit| D[cap staged diff to 400 lines]
+  D --> E[build prompt]
+  E --> F[POST to http://localhost:11434/api/generate]
+  F -->|failure| G[exit, Git continues]
+  F -->|success| H[write message to commit file]
 ```
 
 Sequence with user-supplied message:
-```
-User runs: git commit -m "fix: clarify docs"
-         |
-         v
-Hook sees COMMIT_SOURCE="message" -> exits
-         |
-         v
-Git uses provided message unchanged
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant G as Git
+  participant H as prepare-commit-msg
+
+  U->>G: git commit -m "fix: clarify docs"
+  G->>H: invoke hook (COMMIT_SOURCE=message)
+  H-->>G: detect message provided, exit
+  G-->>U: commit uses provided message unchanged
 ```
 
 ## Install for this repository
